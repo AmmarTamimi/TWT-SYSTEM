@@ -12,6 +12,9 @@ import {
   CreditCard,
 } from "lucide-react";
 
+import { useEffect, useState } from "react";
+import { useUser } from "./UserContext";
+
 const stats = [
   {
     title: "Total Members",
@@ -62,7 +65,10 @@ const recentActivities = [
   { action: "Attendance marked", time: "1 day ago", user: "12 members" },
 ];
 
+
+
 export default function DashboardOverview() {
+  const user = useUser()
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
@@ -70,7 +76,7 @@ export default function DashboardOverview() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-[#2c6e49]">
-              Welcome back, Admin!
+              Welcome back, {user.name}
             </h2>
             <p className="text-gray-600 mt-1">
               Here's what's happening with your welfare management today.

@@ -77,7 +77,7 @@ function Navbar() {
         </ul>
 
         <div className="hidden md:flex items-center gap-2">
-          <Link href="/register">
+          <Link href="/login">
           <Button
             variant="ghost"
             className="text-gray-600 hover:text-[#2c6e49] hover:bg-[#2c6e49]/5"
