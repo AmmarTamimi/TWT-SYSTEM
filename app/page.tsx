@@ -34,6 +34,8 @@ const navLinks = [
   { label: "Contact", href: "#contact" },
 ];
 
+/* ---------------- Navbar ---------------- */
+
 function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -76,24 +78,25 @@ function Navbar() {
           ))}
         </ul>
 
+        {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-2">
           <Link href="/login">
-          <Button
-            variant="ghost"
-            className="text-gray-600 hover:text-[#2c6e49] hover:bg-[#2c6e49]/5"
+            <Button
+              variant="ghost"
+              className="text-gray-600 hover:text-[#2c6e49] hover:bg-[#2c6e49]/5"
             >
-            Login
-          </Button>
-            </Link>
-         <Link href="/register">
-          <Button className="group bg-[#2c6e49] hover:bg-[#1f5234] text-white shadow-md hover:shadow-lg transition-all">
-            Become a member
-            <ArrowUpRight
-              size={14}
-              className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
-            />
-          </Button>
-         </Link>
+              Login
+            </Button>
+          </Link>
+          <Link href="/register">
+            <Button className="group bg-[#2c6e49] hover:bg-[#1f5234] text-white shadow-md hover:shadow-lg transition-all">
+              Become a member
+              <ArrowUpRight
+                size={14}
+                className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+              />
+            </Button>
+          </Link>
         </div>
 
         <button
@@ -105,6 +108,7 @@ function Navbar() {
         </button>
       </nav>
 
+      {/* Mobile menu */}
       {open && (
         <div className="md:hidden border-t border-green-100/50 bg-white/95 backdrop-blur-sm animate-slide-up">
           <div className="mx-auto max-w-6xl px-5 py-4 flex flex-col gap-1">
@@ -118,13 +122,18 @@ function Navbar() {
                 {l.label}
               </a>
             ))}
+
             <div className="mt-2 flex flex-col gap-2 pt-3 border-t border-green-100/50">
-              <Button variant="outline" className="w-full border-gray-200">
-                Login
-              </Button>
-              <Button className="w-full bg-[#2c6e49] hover:bg-[#1f5234] text-white">
-                Become a member
-              </Button>
+              <Link href="/login" onClick={() => setOpen(false)}>
+                <Button variant="outline" className="w-full border-gray-200">
+                  Login
+                </Button>
+              </Link>
+              <Link href="/register" onClick={() => setOpen(false)}>
+                <Button className="w-full bg-[#2c6e49] hover:bg-[#1f5234] text-white">
+                  Become a member
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -133,10 +142,14 @@ function Navbar() {
   );
 }
 
+/* ---------------- Hero ---------------- */
+
 function Hero() {
   return (
-    <section id="home" className="relative overflow-hidden bg-gradient-to-br from-green-50/50 via-white to-green-50/30">
-      {/* Ambient shapes */}
+    <section
+      id="home"
+      className="relative overflow-hidden bg-gradient-to-br from-green-50/50 via-white to-green-50/30"
+    >
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 h-[500px] w-[900px] rounded-full bg-[#2c6e49]/5 blur-3xl animate-float" />
         <div
@@ -161,18 +174,22 @@ function Hero() {
         </h1>
 
         <p className="mx-auto mt-8 max-w-xl text-base sm:text-lg text-gray-500 leading-relaxed animate-slide-up">
-          Tamimi Welfare Trust works alongside families across health, education,
-          and community — building outcomes that last, together.
+          Tamimi Welfare Trust works alongside families across health,
+          education, and community — building outcomes that last, together.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3 animate-slide-up">
-          <a
-            href="#contact"
+          {/* ✅ Now goes to /register */}
+          <Link
+            href="/register"
             className="group inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-[#2c6e49] text-white text-sm font-medium hover:bg-[#1f5234] transition-all shadow-lg hover:shadow-xl"
           >
             Become a member
-            <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-          </a>
+            <ArrowRight
+              size={16}
+              className="group-hover:translate-x-0.5 transition-transform"
+            />
+          </Link>
           <a
             href="#programs"
             className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-medium text-gray-700 hover:text-[#2c6e49] transition-colors"
@@ -181,7 +198,6 @@ function Hero() {
           </a>
         </div>
 
-        {/* Inline mini-stats */}
         <div className="mt-20 grid grid-cols-3 gap-6 max-w-2xl mx-auto animate-fade-in">
           {[
             { v: "12K+", l: "Meals served" },
@@ -201,14 +217,28 @@ function Hero() {
   );
 }
 
+/* ---------------- Marquee ---------------- */
+
 function Marquee() {
-  const words = ["Health", "Education", "Family", "Outreach", "Dignity", "Community", "Care", "Trust"];
+  const words = [
+    "Health",
+    "Education",
+    "Family",
+    "Outreach",
+    "Dignity",
+    "Community",
+    "Care",
+    "Trust",
+  ];
   const row = [...words, ...words];
   return (
     <section className="border-y border-green-100/50 bg-gray-50/50 py-6 overflow-hidden">
       <div className="flex gap-12 animate-marquee whitespace-nowrap">
         {row.map((w, i) => (
-          <span key={i} className="flex items-center gap-12 text-sm font-medium uppercase tracking-[0.25em] text-gray-500">
+          <span
+            key={i}
+            className="flex items-center gap-12 text-sm font-medium uppercase tracking-[0.25em] text-gray-500"
+          >
             {w}
             <span className="h-1.5 w-1.5 rounded-full bg-[#2c6e49]/30" />
           </span>
@@ -217,6 +247,8 @@ function Marquee() {
     </section>
   );
 }
+
+/* ---------------- Stats ---------------- */
 
 const stats = [
   { icon: Heart, value: "12,480", label: "Meals served this year" },
@@ -265,6 +297,8 @@ function Stats() {
   );
 }
 
+/* ---------------- Programs ---------------- */
+
 const programs = [
   {
     icon: Stethoscope,
@@ -301,7 +335,8 @@ function Programs() {
             What we do
           </span>
           <h2 className="mt-4 text-4xl sm:text-5xl text-gray-800">
-            Four programs, one shared idea — <span className="text-[#2c6e49]">people first</span>.
+            Four programs, one shared idea —{" "}
+            <span className="text-[#2c6e49]">people first</span>.
           </h2>
         </div>
 
@@ -315,10 +350,14 @@ function Programs() {
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#2c6e49]/10 text-[#2c6e49]">
                   <p.icon size={22} strokeWidth={1.75} />
                 </div>
-                <span className="text-xs font-medium tracking-[0.15em] text-gray-400">{p.tag}</span>
+                <span className="text-xs font-medium tracking-[0.15em] text-gray-400">
+                  {p.tag}
+                </span>
               </div>
               <h3 className="mt-8 text-2xl text-gray-800">{p.title}</h3>
-              <p className="mt-3 text-sm text-gray-500 leading-relaxed">{p.desc}</p>
+              <p className="mt-3 text-sm text-gray-500 leading-relaxed">
+                {p.desc}
+              </p>
               <div className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#2c6e49] opacity-0 group-hover:opacity-100 transition-opacity">
                 Learn more <ArrowUpRight size={14} />
               </div>
@@ -329,6 +368,8 @@ function Programs() {
     </section>
   );
 }
+
+/* ---------------- Values ---------------- */
 
 const features = [
   {
@@ -362,7 +403,8 @@ function Values() {
             </h2>
             <p className="mt-6 text-gray-500 leading-relaxed">
               Three commitments shape every program, partnership, and rupee we
-              steward. They aren't slogans — they're the working rules of the trust.
+              steward. They aren't slogans — they're the working rules of the
+              trust.
             </p>
           </div>
           <div className="lg:col-span-7 space-y-4">
@@ -391,6 +433,8 @@ function Values() {
     </section>
   );
 }
+
+/* ---------------- Contact ---------------- */
 
 const contactInfo = [
   { icon: MapPin, title: "Visit", value: "12 Community Lane, Karachi, PK" },
@@ -425,7 +469,9 @@ function Contact() {
                   <div className="text-xs uppercase tracking-wider text-gray-500">
                     {c.title}
                   </div>
-                  <div className="mt-1 text-sm font-medium text-gray-800">{c.value}</div>
+                  <div className="mt-1 text-sm font-medium text-gray-800">
+                    {c.value}
+                  </div>
                 </div>
               </div>
             ))}
@@ -480,6 +526,8 @@ function Contact() {
   );
 }
 
+/* ---------------- Footer ---------------- */
+
 function Footer() {
   return (
     <footer className="bg-[#14532d] text-white">
@@ -493,21 +541,53 @@ function Footer() {
               <span className="font-medium">Tamimi Welfare Trust</span>
             </div>
             <p className="mt-5 text-sm opacity-70 max-w-xs leading-relaxed">
-              A community-first welfare trust. Compassion, discipline, and open books
-              since 2014.
+              A community-first welfare trust. Compassion, discipline, and open
+              books since 2014.
             </p>
           </div>
           <div className="text-sm">
-            <div className="text-xs uppercase tracking-wider opacity-60">Explore</div>
+            <div className="text-xs uppercase tracking-wider opacity-60">
+              Explore
+            </div>
             <ul className="mt-4 space-y-2.5">
-              <li><a href="#about" className="hover:opacity-100 opacity-80 transition-opacity">About</a></li>
-              <li><a href="#programs" className="hover:opacity-100 opacity-80 transition-opacity">Programs</a></li>
-              <li><a href="#impact" className="hover:opacity-100 opacity-80 transition-opacity">Impact</a></li>
-              <li><a href="#contact" className="hover:opacity-100 opacity-80 transition-opacity">Contact</a></li>
+              <li>
+                <a
+                  href="#about"
+                  className="hover:opacity-100 opacity-80 transition-opacity"
+                >
+                  About
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#programs"
+                  className="hover:opacity-100 opacity-80 transition-opacity"
+                >
+                  Programs
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#impact"
+                  className="hover:opacity-100 opacity-80 transition-opacity"
+                >
+                  Impact
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#contact"
+                  className="hover:opacity-100 opacity-80 transition-opacity"
+                >
+                  Contact
+                </a>
+              </li>
             </ul>
           </div>
           <div className="text-sm">
-            <div className="text-xs uppercase tracking-wider opacity-60">Reach us</div>
+            <div className="text-xs uppercase tracking-wider opacity-60">
+              Reach us
+            </div>
             <ul className="mt-4 space-y-2.5 opacity-80">
               <li>hello@tamimiwelfare.org</li>
               <li>+92 300 000 0000</li>
@@ -516,13 +596,18 @@ function Footer() {
           </div>
         </div>
         <div className="mt-14 pt-6 border-t border-white/15 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs opacity-70">
-          <div>© {new Date().getFullYear()} Tamimi Welfare Trust. All rights reserved.</div>
+          <div>
+            © {new Date().getFullYear()} Tamimi Welfare Trust. All rights
+            reserved.
+          </div>
           <div>Compassion. Community. Change.</div>
         </div>
       </div>
     </footer>
   );
 }
+
+/* ---------------- Page ---------------- */
 
 export default function LandingPage() {
   return (
