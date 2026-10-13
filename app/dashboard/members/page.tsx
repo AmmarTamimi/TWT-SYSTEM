@@ -73,8 +73,8 @@ export default function MembersPage() {
   // ---- Derive a display status from verification_status + status ----
   const displayStatus = (m: Member) => {
     if (m.status !== "active") return "Inactive";
-    if (m.verification_status === "approved") return "Approved";
-    if (m.verification_status === "rejected") return "Rejected";
+    if (m.verification_status === "verified") return "Approved";
+    if (m.verification_status === "denied") return "Rejected";
     return "Pending";
   };
 
@@ -86,8 +86,7 @@ export default function MembersPage() {
         !term ||
         m.name.toLowerCase().includes(term) ||
         m.cnic.toLowerCase().includes(term) ||
-        m.number?.includes(term) ||
-        m.id.toLowerCase().includes(term);
+        m.number?.includes(term) 
 
       const matchesStatus =
         selectedStatus === "All" || displayStatus(m) === selectedStatus;
