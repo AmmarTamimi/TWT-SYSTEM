@@ -50,24 +50,70 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Generic change handler
+  /* ---------- Generic change handler (no filtering) ---------- */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setform((prev) => ({ ...prev, [id]: value }));
-    if (error) setError(null); // clear error when user types
+    if (error) setError(null);
   };
 
-  // Validate all fields before sending
+  /* ---------- Letters + spaces only (name / father name) ---------- */
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    // Remove digits and any character that isn't a letter or space
+    const cleaned = value.replace(/[^A-Za-z\s]/g, "");
+    setform((prev) => ({ ...prev, [id]: cleaned }));
+    if (error) setError(null);
+  };
+
+  /* ---------- Digits only (CNIC, phone) ---------- */
+  // CNIC: auto-format to #####-#######-#
+  const handleCnicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 13);
+
+    let formatted = digits;
+    if (digits.length > 5) {
+      formatted = digits.slice(0, 5) + "-" + digits.slice(5);
+    }
+    if (digits.length > 12) {
+      formatted =
+        digits.slice(0, 5) + "-" + digits.slice(5, 12) + "-" + digits.slice(12);
+    }
+
+    setform((prev) => ({ ...prev, cnic: formatted }));
+    if (error) setError(null);
+  };
+
+  // Phone: auto-format to ####-#######
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+
+    let formatted = digits;
+    if (digits.length > 4) {
+      formatted = digits.slice(0, 4) + "-" + digits.slice(4);
+    }
+
+    setform((prev) => ({ ...prev, contactNum: formatted }));
+    if (error) setError(null);
+  };
+
+  /* ---------- Validation ---------- */
   const validate = (): string | null => {
     if (!form.name.trim()) return "Full name is required";
+    if (!/^[A-Za-z\s]+$/.test(form.name.trim()))
+      return "Full name must contain only letters";
     if (!form.father_name.trim()) return "Father name is required";
+    if (!/^[A-Za-z\s]+$/.test(form.father_name.trim()))
+      return "Father name must contain only letters";
     if (!form.contactNum.trim()) return "Phone number is required";
-    if (!/^03\d{2}-?\d{7}$/.test(form.contactNum.replace(/\s/g, "")))
+    if (!/^03\d{2}-\d{7}$/.test(form.contactNum))
       return "Enter a valid phone number (e.g. 0300-1234567)";
     if (!form.cnic.trim()) return "CNIC is required";
-    if (!/^\d{5}-?\d{7}-?\d$/.test(form.cnic))
+    if (!/^\d{5}-\d{7}-\d$/.test(form.cnic))
       return "Enter a valid CNIC (e.g. 35202-1234567-1)";
     if (!form.address.trim()) return "Address is required";
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      return "Enter a valid email address";
     if (!form.password) return "Password is required";
     if (form.password.length < 8)
       return "Password must be at least 8 characters";
@@ -78,7 +124,6 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Client-side validation
     const validationError = validate();
     if (validationError) {
       setError(validationError);
@@ -98,11 +143,10 @@ export default function RegisterPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError("Registration failed. Please try again.");
+        setError(data.error || "Registration failed. Please try again.");
         return;
       }
 
-      // Success
       setSuccess(true);
       setform({
         name: "",
@@ -115,9 +159,6 @@ export default function RegisterPage() {
       });
       setConfirmPassword("");
       setPasswordStrength(0);
-
-      // Optionally redirect after a few seconds
-      // setTimeout(() => router.push("/login"), 3000);
     } catch (err) {
       console.error(err);
       setError("Network error. Please check your connection and try again.");
@@ -135,24 +176,7 @@ export default function RegisterPage() {
     setPasswordStrength(strength);
   };
 
-  // Formats digits into XXXXX-XXXXXXX-X as the user types
-  const handleCnicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, "").slice(0, 13);
-
-    let formatted = digits;
-    if (digits.length > 5) {
-      formatted = digits.slice(0, 5) + "-" + digits.slice(5);
-    }
-    if (digits.length > 12) {
-      formatted =
-        digits.slice(0, 5) + "-" + digits.slice(5, 12) + "-" + digits.slice(12);
-    }
-
-    setform((prev) => ({ ...prev, cnic: formatted }));
-    if (error) setError(null);
-  };
-
-  // Success screen
+  /* ---------- Success screen ---------- */
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50/50 via-white to-green-50/30 flex items-center justify-center px-4 py-12">
@@ -180,9 +204,9 @@ export default function RegisterPage() {
     );
   }
 
+  /* ---------- Main form ---------- */
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50/50 via-white to-green-50/30 flex items-center justify-center px-4 py-12">
-      {/* Decorative background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#2c6e49]/5 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#2c6e49]/5 rounded-full blur-3xl"></div>
@@ -223,10 +247,12 @@ export default function RegisterPage() {
                 <Input
                   id="name"
                   type="text"
+                  inputMode="text"
+                  autoComplete="name"
                   placeholder="Enter your full name"
                   className="w-full border-gray-200 transition-all duration-300 bg-white/50 pl-10"
                   value={form.name}
-                  onChange={handleChange}
+                  onChange={handleNameChange}
                   required
                 />
               </div>
@@ -242,10 +268,12 @@ export default function RegisterPage() {
                 <Input
                   id="father_name"
                   type="text"
+                  inputMode="text"
+                  autoComplete="off"
                   placeholder="Enter Father's Name"
                   className="w-full border-gray-200 transition-all duration-300 bg-white/50 pl-10"
                   value={form.father_name}
-                  onChange={handleChange}
+                  onChange={handleNameChange}
                   required
                 />
               </div>
@@ -262,7 +290,8 @@ export default function RegisterPage() {
                   id="cnic"
                   type="text"
                   inputMode="numeric"
-                  maxLength={15} // 13 digits + 2 dashes
+                  maxLength={15}
+                  autoComplete="off"
                   placeholder="35202-1234567-1"
                   className="w-full border-gray-200 transition-all duration-300 bg-white/50 pl-10"
                   value={form.cnic}
@@ -282,10 +311,13 @@ export default function RegisterPage() {
                 <Input
                   id="contactNum"
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={12}
+                  autoComplete="tel"
                   placeholder="0300-1234567"
                   className="w-full border-gray-200 transition-all duration-300 bg-white/50 pl-10"
                   value={form.contactNum}
-                  onChange={handleChange}
+                  onChange={handlePhoneChange}
                   required
                 />
               </div>
@@ -302,6 +334,7 @@ export default function RegisterPage() {
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="you@example.com"
                   className="w-full border-gray-200 transition-all duration-300 bg-white/50 pl-10"
                   value={form.email}
@@ -320,6 +353,7 @@ export default function RegisterPage() {
                 <Input
                   id="address"
                   type="text"
+                  autoComplete="street-address"
                   placeholder="Enter your complete address"
                   className="w-full border-gray-200 transition-all duration-300 bg-white/50 pl-10"
                   value={form.address}
@@ -339,6 +373,7 @@ export default function RegisterPage() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
                   placeholder="Create a strong password"
                   className="w-full border-gray-200 transition-all duration-300 bg-white/50 pl-10 pr-10"
                   value={form.password}
@@ -373,8 +408,8 @@ export default function RegisterPage() {
                             ? i < 2
                               ? "bg-red-400"
                               : i < 3
-                                ? "bg-yellow-400"
-                                : "bg-[#2c6e49]"
+                              ? "bg-yellow-400"
+                              : "bg-[#2c6e49]"
                             : "bg-gray-200"
                         }`}
                       />
@@ -402,6 +437,7 @@ export default function RegisterPage() {
                 <Input
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
                   placeholder="Confirm your password"
                   className={`w-full transition-all duration-300 bg-white/50 pl-10 pr-10 ${
                     confirmPassword && confirmPassword !== form.password
@@ -453,7 +489,7 @@ export default function RegisterPage() {
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <CheckCircle className="w-3.5 h-3.5 text-green-600" />
                   <span className="text-xs text-green-700 font-medium">
-                    Secure & Encrypted
+                    Secure &amp; Encrypted
                   </span>
                 </div>
               </div>

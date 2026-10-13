@@ -1,8 +1,9 @@
+// app/api/meetings/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/app/lib/supabase/admin";
 import { getSession } from "@/app/lib/session";
 
-// ---------- GET all meetings ----------
+/* ---------- GET: list all meetings ---------- */
 export async function GET() {
   const session = await getSession();
   if (!session.userId) {
@@ -12,16 +13,9 @@ export async function GET() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("Meeting")
-    .select(`
-      id,
-      title,
-      agenda,
-      location,
-      date,
-      meeting_number,
-      arranged_by,
-      created_at
-    `)
+    .select(
+      "id, title, agenda, location, date, meeting_number, arranged_by, created_at"
+    )
     .order("date", { ascending: false });
 
   if (error) {
@@ -30,11 +24,11 @@ export async function GET() {
   return NextResponse.json(data ?? []);
 }
 
-// ---------- POST create meeting ----------
+/* ---------- POST: create meeting (admin only) ---------- */
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session.userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session.userId || session.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -43,7 +37,10 @@ export async function POST(req: NextRequest) {
   // Validate
   if (!title || !location || !date || !meeting_number || !arranged_by) {
     return NextResponse.json(
-      { error: "Title, location, date, meeting number, and arranged by are required" },
+      {
+        error:
+          "Title, location, date, meeting number, and arranged by are required",
+      },
       { status: 400 }
     );
   }
@@ -57,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Optional: check meeting_number uniqueness for a friendlier error
+  // Check meeting_number uniqueness
   const { data: existing } = await supabase
     .from("Meeting")
     .select("id")

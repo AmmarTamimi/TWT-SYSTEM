@@ -24,6 +24,26 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
 
+  /* ---------- CNIC formatter: digits only → #####-#######-# ---------- */
+  const handleCnicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 13);
+
+    let formatted = digits;
+    if (digits.length > 5) {
+      formatted = digits.slice(0, 5) + "-" + digits.slice(5);
+    }
+    if (digits.length > 12) {
+      formatted =
+        digits.slice(0, 5) + "-" + digits.slice(5, 12) + "-" + digits.slice(12);
+    }
+
+    setIdentifier(formatted);
+    if (error) {
+      setError(null);
+      setErrorCode(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -50,9 +70,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Success → route based on role
       router.push(data.redirectTo || "/dashboard");
-      router.refresh(); // ensures the session cookie is picked up by server components
+      router.refresh();
     } catch (err) {
       console.error(err);
       setError("Network error. Please check your connection and try again.");
@@ -88,8 +107,6 @@ export default function LoginPage() {
               className={`mb-5 p-4 rounded-xl flex items-start gap-3 border ${
                 errorCode === "NOT_VERIFIED"
                   ? "bg-amber-50 border-amber-200"
-                  : errorCode === "DISABLED"
-                  ? "bg-red-50 border-red-200"
                   : "bg-red-50 border-red-200"
               }`}
             >
@@ -140,7 +157,7 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* CNIC / Phone */}
+            {/* CNIC */}
             <div>
               <label
                 htmlFor="identifier"
@@ -153,16 +170,12 @@ export default function LoginPage() {
                 <Input
                   id="identifier"
                   type="text"
+                  inputMode="numeric"
+                  maxLength={15}
                   placeholder="35202-1234567-1"
                   className="w-full border-gray-200 focus:border-[#2c6e49] focus:ring-[#2c6e49] transition-all duration-300 bg-white/50 pl-10"
                   value={identifier}
-                  onChange={(e) => {
-                    setIdentifier(e.target.value);
-                    if (error) {
-                      setError(null);
-                      setErrorCode(null);
-                    }
-                  }}
+                  onChange={handleCnicChange}
                   required
                 />
               </div>
