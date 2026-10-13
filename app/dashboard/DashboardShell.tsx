@@ -478,4 +478,4 @@ function pageTitle(pathname: string) {
     "/dashboard/settings": "Settings",
   };
   return map[pathname] ?? "";
-}
+} 
