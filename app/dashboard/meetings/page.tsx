@@ -22,6 +22,7 @@ import {
   CalendarCheck,
   UserPlus,
 } from "lucide-react";
+import { useUser } from "../UserContext";
 
 interface Meeting {
   id: string;
@@ -108,6 +109,9 @@ function downloadMeetingsCsv(meetings: Meeting[]) {
 
 export default function MeetingsPage() {
   const router = useRouter();
+  const user = useUser();
+  const isAdmin = user.role === "admin";
+
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,8 +146,9 @@ export default function MeetingsPage() {
 
   useEffect(() => {
     fetchMeetings();
-    fetchMembers();
-  }, []);
+    if (isAdmin) fetchMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
 
   const filteredMeetings = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -216,26 +221,32 @@ export default function MeetingsPage() {
             Meetings
           </h2>
           <p className="text-gray-500 text-xs md:text-sm mt-1">
-            Manage and view all welfare meetings
+            {isAdmin
+              ? "Manage and view all welfare meetings"
+              : "View all welfare meetings"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setShowCreateModal(true)}
-            className="flex-1 sm:flex-initial bg-[#2c6e49] hover:bg-[#1f5234] text-white shadow-md hover:shadow-lg transition-all duration-300 text-sm"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Meeting
-          </Button>
-          <Button
-            onClick={handleExport}
-            variant="outline"
-            className="flex-1 sm:flex-initial border-[#2c6e49] text-[#2c6e49] hover:bg-[#2c6e49]/5 text-sm"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-        </div>
+
+        {/* Admin-only actions */}
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              className="flex-1 sm:flex-initial bg-[#2c6e49] hover:bg-[#1f5234] text-white shadow-md hover:shadow-lg transition-all duration-300 text-sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Meeting
+            </Button>
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              className="flex-1 sm:flex-initial border-[#2c6e49] text-[#2c6e49] hover:bg-[#2c6e49]/5 text-sm"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -327,7 +338,9 @@ export default function MeetingsPage() {
               <Card
                 key={meeting.id}
                 className="border-0 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer"
-                onClick={() => router.push(`/dashboard/meetings/${meeting.id}`)}
+                onClick={() =>
+                  router.push(`/dashboard/meetings/${meeting.id}`)
+                }
               >
                 <CardContent className="p-0">
                   <div className="p-4 md:p-5">
@@ -390,7 +403,7 @@ export default function MeetingsPage() {
                         </div>
                       </div>
 
-                      {/* Actions */}
+                      {/* Actions — Edit only for admin */}
                       <div
                         className="flex items-center gap-1 sm:flex-col sm:items-end flex-shrink-0 self-end sm:self-start"
                         onClick={(e) => e.stopPropagation()}
@@ -404,17 +417,19 @@ export default function MeetingsPage() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button
-                          title="Edit"
-                          onClick={() =>
-                            router.push(
-                              `/dashboard/meetings/${meeting.id}?edit=1`
-                            )
-                          }
-                          className="p-2 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            title="Edit"
+                            onClick={() =>
+                              router.push(
+                                `/dashboard/meetings/${meeting.id}?edit=1`
+                              )
+                            }
+                            className="p-2 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -436,10 +451,12 @@ export default function MeetingsPage() {
           </h3>
           <p className="text-gray-500 text-xs md:text-sm mt-1">
             {meetings.length === 0
-              ? "Create your first meeting to get started."
+              ? isAdmin
+                ? "Create your first meeting to get started."
+                : "Meetings will appear here once created."
               : "Try adjusting your search or filter criteria."}
           </p>
-          {meetings.length === 0 && (
+          {meetings.length === 0 && isAdmin && (
             <Button
               onClick={() => setShowCreateModal(true)}
               className="mt-4 bg-[#2c6e49] hover:bg-[#1f5234] text-white"
@@ -460,8 +477,8 @@ export default function MeetingsPage() {
         </div>
       )}
 
-      {/* Create Modal */}
-      {showCreateModal && (
+      {/* Create Modal — admin only */}
+      {isAdmin && showCreateModal && (
         <CreateMeetingModal
           members={members}
           onClose={() => setShowCreateModal(false)}
