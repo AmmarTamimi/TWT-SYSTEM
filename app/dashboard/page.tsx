@@ -1,178 +1,313 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "../components/ui/Card";
 import {
   Users,
   Wallet,
   CalendarCheck,
   HandCoins,
-  TrendingUp,
-  Clock,
-  UserPlus,
-  CreditCard,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
-
-import { useEffect, useState } from "react";
 import { useUser } from "./UserContext";
 
-const stats = [
-  {
-    title: "Total Members",
-    value: "1,284",
-    icon: <Users className="w-6 h-6 text-[#2c6e49]" />,
-    change: "+12%",
-    changeType: "increase",
-    bg: "bg-green-50",
-  },
-  {
-    title: "Total Funds",
-    value: "$45,892",
-    icon: <Wallet className="w-6 h-6 text-[#2c6e49]" />,
-    change: "+8%",
-    changeType: "increase",
-    bg: "bg-blue-50",
-  },
-  {
-    title: "Meetings Held",
-    value: "24",
-    icon: <CalendarCheck className="w-6 h-6 text-[#2c6e49]" />,
-    change: "+3",
-    changeType: "increase",
-    bg: "bg-purple-50",
-  },
-  {
-    title: "Loan Requests",
-    value: "18",
-    icon: <HandCoins className="w-6 h-6 text-[#2c6e49]" />,
-    change: "-2",
-    changeType: "decrease",
-    bg: "bg-amber-50",
-  },
-];
+/* ---------------- Types ---------------- */
 
-// const quickActions = [
-//   { label: "Add Member", icon: <UserPlus className="w-5 h-5" />, color: "bg-[#2c6e49]" },
-//   { label: "Create Meeting", icon: <CalendarCheck className="w-5 h-5" />, color: "bg-blue-600" },
-//   { label: "Request Loan", icon: <HandCoins className="w-5 h-5" />, color: "bg-amber-600" },
-//   { label: "View Attendance", icon: <Clock className="w-5 h-5" />, color: "bg-purple-600" },
-// ];
+type AdminStats = {
+  totalMembers: number;
+  totalFunds: number;
+  meetingsHeld: number;
+  duesCount: number;
+};
 
-const recentActivities = [
-  { action: "New member registered", time: "2 minutes ago", user: "Ahmed Khan" },
-  { action: "Meeting scheduled", time: "1 hour ago", user: "Admin" },
-  { action: "Loan request approved", time: "3 hours ago", user: "Fatima Ali" },
-  { action: "Funds collected", time: "5 hours ago", user: "System" },
-  { action: "Attendance marked", time: "1 day ago", user: "12 members" },
-];
+type MemberStats = {
+  attendanceCount: number;
+  meetingsAttended: number;
+  outstandingDues: number;
+  totalDonated: number;
+};
 
+type ActivityKind =
+  | "meeting"
+  | "donation"
+  | "member"
+  | "verified"
+  | "declined";
 
+type Activity = {
+  action: string;
+  user: string;
+  time: string;
+  kind: ActivityKind;
+};
+
+type DashboardData =
+  | { role: "admin"; stats: AdminStats; activities: Activity[] }
+  | { role: "member"; stats: MemberStats; activities: Activity[] };
+
+/* ---------------- Helpers ---------------- */
+
+function formatMoney(n: number) {
+  return new Intl.NumberFormat("en-PK", {
+    style: "currency",
+    currency: "PKR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+const kindStyles: Record<
+  ActivityKind,
+  { bg: string; icon: React.ReactNode }
+> = {
+  meeting: {
+    bg: "bg-purple-50 text-purple-600",
+    icon: <CalendarCheck className="w-4 h-4" />,
+  },
+  donation: {
+    bg: "bg-emerald-50 text-emerald-600",
+    icon: <Wallet className="w-4 h-4" />,
+  },
+  verified: {
+    bg: "bg-green-50 text-green-600",
+    icon: <CheckCircle2 className="w-4 h-4" />,
+  },
+  declined: {
+    bg: "bg-rose-50 text-rose-600",
+    icon: <XCircle className="w-4 h-4" />,
+  },
+  member: {
+    bg: "bg-gray-50 text-gray-600",
+    icon: <Users className="w-4 h-4" />,
+  },
+};
+
+/* ---------------- Page ---------------- */
 
 export default function DashboardOverview() {
-  const user = useUser()
+  const user = useUser();
+
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/dashboard");
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Failed to load dashboard");
+        if (!cancelled) setData(json);
+      } catch (err) {
+        if (!cancelled) setError((err as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /* ---------- Loading / error ---------- */
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-[#2c6e49]/10 to-green-50/50 rounded-2xl p-6 border border-[#2c6e49]/10">
+          <h2 className="text-2xl font-bold text-[#2c6e49]">
+            Welcome back, {user.name}
+          </h2>
+          <p className="text-gray-600 mt-1">
+            Here's what's happening with your welfare management today.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="border-0 shadow-sm animate-pulse">
+              <CardContent className="p-6 h-32 bg-gray-50 rounded-xl" />
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        Failed to load dashboard: {error || "Unknown error"}
+      </div>
+    );
+  }
+
+  /* ---------- Build stat cards based on role ---------- */
+  const statCards =
+    data.role === "admin"
+      ? [
+          {
+            title: "Total Members",
+            value: String(data.stats.totalMembers),
+            icon: <Users className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-green-50",
+            subtitle: "Registered members",
+          },
+          {
+            title: "Total Funds",
+            value: formatMoney(data.stats.totalFunds),
+            icon: <Wallet className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-blue-50",
+            subtitle: "All donations received",
+          },
+          {
+            title: "Meetings Held",
+            value: String(data.stats.meetingsHeld),
+            icon: <CalendarCheck className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-purple-50",
+            subtitle: "Past meetings",
+          },
+          {
+            title: "Outstanding Dues",
+            value: String(data.stats.duesCount),
+            icon: <HandCoins className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-amber-50",
+            subtitle: "Due records",
+          },
+        ]
+      : [
+          {
+            title: "Meetings Held",
+            value: String(data.stats.attendanceCount),
+            icon: <CalendarCheck className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-purple-50",
+            subtitle: "Attendance records",
+          },
+          {
+            title: "Meetings Attended",
+            value: String(data.stats.meetingsAttended),
+            icon: <Users className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-green-50",
+            subtitle: "Present in meetings",
+          },
+          {
+            title: "Outstanding Dues",
+            value: formatMoney(data.stats.outstandingDues),
+            icon: <HandCoins className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-amber-50",
+            subtitle: "Amount pending",
+          },
+          {
+            title: "Total Donated",
+            value: formatMoney(data.stats.totalDonated),
+            icon: <Wallet className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-blue-50",
+            subtitle: "Lifetime contributions",
+          },
+        ];
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-[#2c6e49]/10 to-green-50/50 rounded-2xl p-6 border border-[#2c6e49]/10">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-[#2c6e49]">
-              Welcome back, {user.name}
-            </h2>
-            <p className="text-gray-600 mt-1">
-              Here's what's happening with your welfare management today.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500 bg-white/70 px-3 py-1.5 rounded-full border border-green-100">
-              Last login: Today 10:30 AM
-            </span>
-          </div>
+        <div>
+          <h2 className="text-2xl font-bold text-[#2c6e49]">
+            Welcome back, {user.name}
+          </h2>
+          <p className="text-gray-600 mt-1">
+            {data.role === "admin"
+              ? "Here's what's happening with your welfare management today."
+              : "Here's a summary of your welfare activity."}
+          </p>
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <Card key={stat.title} className="border-0 shadow-sm hover:shadow-md transition-all duration-300 hover-lift">
+        {statCards.map((stat) => (
+          <Card
+            key={stat.title}
+            className="border-0 shadow-sm hover:shadow-md transition-all duration-300"
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">{stat.title}</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">{stat.value}</p>
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-500 font-medium">
+                    {stat.title}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-800 mt-1 truncate">
+                    {stat.value}
+                  </p>
                 </div>
-                <div className={`p-3 rounded-xl ${stat.bg}`}>{stat.icon}</div>
+                <div className={`p-3 rounded-xl ${stat.bg} shrink-0`}>
+                  {stat.icon}
+                </div>
               </div>
-              <div className="mt-3 flex items-center gap-1">
-                <span
-                  className={`text-xs font-medium ${
-                    stat.changeType === "increase" ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {stat.change}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {stat.changeType === "increase" ? "vs last month" : "vs last month"}
-                </span>
-              </div>
+              <p className="mt-3 text-xs text-gray-400">{stat.subtitle}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Quick Actions & Recent Activity */}
-      
-        {/* Quick Actions */}
-        {/* <div className="lg:col-span-1">
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">Quick Actions</h3>
-              <div className="space-y-2">
-                {quickActions.map((action) => (
-                  <button
-                    key={action.label}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50/50 hover:bg-green-50 transition-all duration-200 group"
-                  >
-                    <div className={`p-2 rounded-lg ${action.color} text-white`}>
-                      {action.icon}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-[#2c6e49] transition-colors">
-                      {action.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div> */}
-
-        {/* Recent Activity */}
-        <div className="px-5">
+      {/* Recent Activity — admin only */}
+      {data.role === "admin" && (
+        <div className="px-1 md:px-5">
           <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-700">Recent Activity</h3>
-                <button className="text-xs text-[#2c6e49] font-medium hover:underline">
-                  View All
-                </button>
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Recent Activity
+                </h3>
               </div>
-              <div className="space-y-3">
-                {recentActivities.map((activity, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-                  >
-                    <div>
-                      <p className="text-sm text-gray-700">{activity.action}</p>
-                      <p className="text-xs text-gray-400">by {activity.user}</p>
-                    </div>
-                    <span className="text-xs text-gray-400">{activity.time}</span>
-                  </div>
-                ))}
-              </div>
+
+              {data.activities.length === 0 ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-gray-500">
+                    No recent activity yet.
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Activity will appear here as members register, meetings are
+                    created, and donations are recorded.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {data.activities.map((activity, index) => {
+                    const style =
+                      kindStyles[activity.kind] ?? kindStyles.member;
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${style.bg}`}
+                          >
+                            {style.icon}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm text-gray-700 truncate">
+                              {activity.action}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              by {activity.user}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-400 shrink-0 ml-3">
+                          {activity.time}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-      </div>
-    
+      )}
+    </div>
   );
 }

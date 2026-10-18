@@ -18,11 +18,12 @@ import {
   X,
   AlertCircle,
   CheckCircle2,
-  XCircle,
   Users,
   Search,
   UserCog,
   ShieldCheck,
+  Lock,
+  Wallet,
 } from "lucide-react";
 import { useUser } from "../../UserContext";
 
@@ -67,6 +68,19 @@ function formatDateTime(iso: string) {
   });
 }
 
+function toLocalInputValue(utcIso: string | null | undefined): string {
+  if (!utcIso) return "";
+  const d = new Date(utcIso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+    d.getDate()
+  )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function toUtcIso(localValue: string): string {
+  return new Date(localValue).toISOString();
+}
+
 /* ---------------- Page ---------------- */
 
 export default function MeetingDetailPage() {
@@ -74,6 +88,9 @@ export default function MeetingDetailPage() {
   const router = useRouter();
   const user = useUser();
   const id = params.id as string;
+
+  /* ---------- Tab state (admin only) ---------- */
+  const [tab, setTab] = useState<"attendance" | "funding">("attendance");
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,19 +122,23 @@ export default function MeetingDetailPage() {
       try {
         const [meetingRes, membersRes] = await Promise.all([
           fetch(`/api/meetings/${id}`),
-          fetch(`/api/members`),
+          isAdmin ? fetch(`/api/members`) : Promise.resolve(null),
         ]);
 
         const meetingData = await meetingRes.json();
         if (!meetingRes.ok)
           throw new Error(meetingData.error || "Failed to load meeting");
 
-        const membersData = membersRes.ok ? await membersRes.json() : [];
+        const membersData =
+          membersRes && membersRes.ok ? await membersRes.json() : [];
 
-        const attRes = await fetch(
-          `/api/attendance?meeting_number=${meetingData.meeting_number}`
-        );
-        const attData: AttendanceRow[] = attRes.ok ? await attRes.json() : [];
+        let attData: AttendanceRow[] = [];
+        if (isAdmin) {
+          const attRes = await fetch(
+            `/api/attendance?meeting_number=${meetingData.meeting_number}`
+          );
+          attData = attRes.ok ? await attRes.json() : [];
+        }
 
         if (!cancelled) {
           setMeeting(meetingData);
@@ -140,7 +161,7 @@ export default function MeetingDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, isAdmin]);
 
   /* ---------- Save meeting ---------- */
   const handleSave = async () => {
@@ -193,7 +214,7 @@ export default function MeetingDetailPage() {
     setAttendance((prev) => ({ ...prev, [memberId]: status }));
   };
 
-  /* ---------- Save attendance (silent) ---------- */
+  /* ---------- Save attendance ---------- */
   const saveAttendance = async () => {
     if (!meeting) return;
 
@@ -202,9 +223,7 @@ export default function MeetingDetailPage() {
       status,
     }));
 
-    if (entries.length === 0) {
-      return;
-    }
+    if (entries.length === 0) return;
 
     setSavingAttendance(true);
     try {
@@ -230,6 +249,12 @@ export default function MeetingDetailPage() {
   };
 
   /* ---------- Derived ---------- */
+  const meetingHasOccurred = useMemo(() => {
+    if (!meeting) return false;
+    const meetingTime = new Date(meeting.date).getTime();
+    return Date.now() >= meetingTime;
+  }, [meeting]);
+
   const hasUnsavedChanges = useMemo(() => {
     const keys = new Set([
       ...Object.keys(attendance),
@@ -300,7 +325,11 @@ export default function MeetingDetailPage() {
   }
 
   return (
-    <div className="space-y-5 md:space-y-6 max-w-5xl pb-28">
+    <div
+      className={`space-y-5 md:space-y-6 max-w-5xl ${
+        isAdmin && tab === "attendance" && meetingHasOccurred ? "pb-28" : ""
+      }`}
+    >
       {/* Back */}
       <Link
         href="/dashboard/meetings"
@@ -407,15 +436,11 @@ export default function MeetingDetailPage() {
               <Field label="Date & Time">
                 <Input
                   type="datetime-local"
-                  value={
-                    draft.date
-                      ? new Date(draft.date).toISOString().slice(0, 16)
-                      : ""
-                  }
+                  value={toLocalInputValue(draft.date)}
                   onChange={(e) =>
                     setDraft((d) => ({
                       ...d,
-                      date: new Date(e.target.value).toISOString(),
+                      date: toUtcIso(e.target.value),
                     }))
                   }
                 />
@@ -465,153 +490,231 @@ export default function MeetingDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Attendance */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-4 md:p-6">
-          <div className="flex flex-col gap-3 mb-4 md:mb-5">
-            <div>
-              <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                <Users className="w-5 h-5 text-[#2c6e49]" />
-                Attendance
-              </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {attendanceStats.present} present · {attendanceStats.absent}{" "}
-                absent · {attendanceStats.total} total
-                {hasUnsavedChanges && (
-                  <span className="ml-2 text-amber-600 font-medium">
-                    • Unsaved changes
-                  </span>
-                )}
-              </p>
-            </div>
-            <div className="relative w-full sm:w-64 sm:self-end">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <Input
-                placeholder="Search members..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 border-gray-200"
-              />
-            </div>
-          </div>
-
-          {members.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">
-              No members to mark.
-            </p>
-          ) : (
-            <div className="space-y-6">
-              {/* ADMINS */}
-              {filteredAdmins.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-                    <div className="w-7 h-7 rounded-lg bg-[#2c6e49]/10 flex items-center justify-center">
-                      <ShieldCheck className="w-4 h-4 text-[#2c6e49]" />
-                    </div>
-                    <h4 className="text-xs md:text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                      Admins
-                    </h4>
-                    <span className="ml-auto text-xs text-gray-400 font-medium">
-                      {filteredAdmins.length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {filteredAdmins.map((m) => (
-                      <AttendanceRowCard
-                        key={m.id}
-                        member={m}
-                        status={attendance[m.id]}
-                        isAdmin={isAdmin}
-                        onToggle={(s) => toggleAttendance(m.id, s)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* MEMBERS */}
-              {filteredMembers.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-                    <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                      <UserCog className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <h4 className="text-xs md:text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                      Members
-                    </h4>
-                    <span className="ml-auto text-xs text-gray-400 font-medium">
-                      {filteredMembers.length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {filteredMembers.map((m) => (
-                      <AttendanceRowCard
-                        key={m.id}
-                        member={m}
-                        status={attendance[m.id]}
-                        isAdmin={isAdmin}
-                        onToggle={(s) => toggleAttendance(m.id, s)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {filteredAdmins.length === 0 && filteredMembers.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-6">
-                  No members match your search.
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Floating Save bar */}
-      {isAdmin && (hasUnsavedChanges || justSaved) && members.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 md:left-64 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-xl shadow-lg px-4 md:px-6 py-3">
-          <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-            {justSaved && !hasUnsavedChanges ? (
-              <div className="flex items-center gap-2 text-sm text-green-700 font-medium">
-                <CheckCircle2 className="w-4 h-4" />
-                Attendance saved
-              </div>
-            ) : (
-              <>
-                <p className="text-sm text-gray-600 hidden sm:block">
-                  You have unsaved attendance changes.
-                </p>
-                <div className="flex gap-2 ml-auto w-full sm:w-auto">
-                  <button
-                    onClick={() => setAttendance({ ...originalAttendance })}
-                    disabled={savingAttendance}
-                    className="flex-1 sm:flex-initial px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                  >
-                    Discard
-                  </button>
-                  <button
-                    onClick={saveAttendance}
-                    disabled={savingAttendance}
-                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2 text-sm rounded-lg bg-[#2c6e49] hover:bg-[#1f5234] text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {savingAttendance ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        Save Attendance
-                      </>
-                    )}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+      {/* ---------- Tab switcher — ADMIN ONLY ---------- */}
+      {isAdmin && (
+        <div className="flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setTab("attendance")}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+              tab === "attendance"
+                ? "border-[#2c6e49] text-[#2c6e49]"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Attendance
+          </button>
+          <button
+            onClick={() => setTab("funding")}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+              tab === "funding"
+                ? "border-[#2c6e49] text-[#2c6e49]"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Wallet className="w-4 h-4" />
+            Funding
+          </button>
         </div>
       )}
+
+      {/* ---------- Tab: Attendance — ADMIN ONLY ---------- */}
+      {isAdmin &&
+        tab === "attendance" &&
+        (meetingHasOccurred ? (
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col gap-3 mb-4 md:mb-5">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-[#2c6e49]" />
+                    Attendance
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {attendanceStats.present} present ·{" "}
+                    {attendanceStats.absent} absent ·{" "}
+                    {attendanceStats.total} total
+                    {hasUnsavedChanges && (
+                      <span className="ml-2 text-amber-600 font-medium">
+                        • Unsaved changes
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="relative w-full sm:w-64 sm:self-end">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Input
+                    placeholder="Search members..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9 border-gray-200"
+                  />
+                </div>
+              </div>
+
+              {members.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  No members to mark.
+                </p>
+              ) : (
+                <div className="space-y-6">
+                  {filteredAdmins.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+                        <div className="w-7 h-7 rounded-lg bg-[#2c6e49]/10 flex items-center justify-center">
+                          <ShieldCheck className="w-4 h-4 text-[#2c6e49]" />
+                        </div>
+                        <h4 className="text-xs md:text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                          Admins
+                        </h4>
+                        <span className="ml-auto text-xs text-gray-400 font-medium">
+                          {filteredAdmins.length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {filteredAdmins.map((m) => (
+                          <AttendanceRowCard
+                            key={m.id}
+                            member={m}
+                            status={attendance[m.id]}
+                            isAdmin={isAdmin}
+                            onToggle={(s) => toggleAttendance(m.id, s)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredMembers.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+                        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                          <UserCog className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <h4 className="text-xs md:text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                          Members
+                        </h4>
+                        <span className="ml-auto text-xs text-gray-400 font-medium">
+                          {filteredMembers.length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {filteredMembers.map((m) => (
+                          <AttendanceRowCard
+                            key={m.id}
+                            member={m}
+                            status={attendance[m.id]}
+                            isAdmin={isAdmin}
+                            onToggle={(s) => toggleAttendance(m.id, s)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredAdmins.length === 0 &&
+                    filteredMembers.length === 0 && (
+                      <p className="text-sm text-gray-500 text-center py-6">
+                        No members match your search.
+                      </p>
+                    )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-0 shadow-sm border-dashed">
+            <CardContent className="p-6 md:p-8 text-center">
+              <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-gray-100 mb-4">
+                <Lock className="w-6 h-6 md:w-7 md:h-7 text-gray-400" />
+              </div>
+              <h3 className="text-base md:text-lg font-semibold text-gray-700">
+                Attendance locked
+              </h3>
+              <p className="text-gray-500 text-xs md:text-sm mt-1 max-w-sm mx-auto">
+                Attendance will be available to mark once the meeting has
+                occurred on{" "}
+                <span className="font-medium text-gray-700">
+                  {formatDateTime(meeting.date)}
+                </span>
+                .
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+
+      {/* ---------- Tab: Funding — ADMIN ONLY ---------- */}
+      {isAdmin && tab === "funding" && (
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6 md:p-8 text-center">
+            <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-[#2c6e49]/10 mb-4">
+              <Wallet className="w-6 h-6 md:w-7 md:h-7 text-[#2c6e49]" />
+            </div>
+            <h3 className="text-base md:text-lg font-semibold text-gray-700">
+              Meeting Funding
+            </h3>
+            <p className="text-gray-500 text-xs md:text-sm mt-1 max-w-sm mx-auto">
+              Track contributions for this meeting in a dedicated page.
+            </p>
+            <Link
+              href={`/dashboard/meetings/${meeting.id}/funding`}
+              className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#2c6e49] hover:bg-[#1f5234] text-white text-sm font-medium transition-colors"
+            >
+              Open Funding Page
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Floating Save bar (attendance tab only, admin only) */}
+      {isAdmin &&
+        tab === "attendance" &&
+        meetingHasOccurred &&
+        (hasUnsavedChanges || justSaved) &&
+        members.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 md:left-64 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-xl shadow-lg px-4 md:px-6 py-3">
+            <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+              {justSaved && !hasUnsavedChanges ? (
+                <div className="flex items-center gap-2 text-sm text-green-700 font-medium">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Attendance saved
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 hidden sm:block">
+                    You have unsaved attendance changes.
+                  </p>
+                  <div className="flex gap-2 ml-auto w-full sm:w-auto">
+                    <button
+                      onClick={() => setAttendance({ ...originalAttendance })}
+                      disabled={savingAttendance}
+                      className="flex-1 sm:flex-initial px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      Discard
+                    </button>
+                    <button
+                      onClick={saveAttendance}
+                      disabled={savingAttendance}
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2 text-sm rounded-lg bg-[#2c6e49] hover:bg-[#1f5234] text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {savingAttendance ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Save Attendance
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
       {/* Delete confirm */}
       {confirmDelete && (
@@ -629,7 +732,7 @@ export default function MeetingDetailPage() {
             <p className="text-sm text-gray-600 mb-6">
               Are you sure you want to delete{" "}
               <span className="font-semibold">{meeting.title}</span>? All
-              attendance records for this meeting will also be removed.
+              attendance and funding records will also be removed.
             </p>
             <div className="flex justify-end gap-2">
               <button
