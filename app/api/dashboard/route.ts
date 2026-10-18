@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/app/lib/supabase/admin";
 import { getSession } from "@/app/lib/session";
 
-/* ---------- GET: dashboard stats + recent activity ---------- */
 export async function GET() {
   const session = await getSession();
   if (!session.userId) {
@@ -11,43 +10,90 @@ export async function GET() {
   }
 
   const supabase = createAdminClient();
+  const userId = Number(session.userId);
+  const isAdmin = session.role === "admin";
 
-  /* ---------- 1. Total members ---------- */
+  /* ================================================================
+   * MEMBER DASHBOARD — personal stats only
+   * ================================================================ */
+  if (!isAdmin) {
+    // 1. Attendance records (how many meetings they were marked present in)
+    const { data: attendanceRows } = await supabase
+      .from("Attendance")
+      .select("id, status, marked_at")
+      .eq("user_id", userId);
+
+    const attendanceCount = attendanceRows?.length ?? 0;
+    const meetingsAttended =
+      attendanceRows?.filter((a) => a.status === "present").length ?? 0;
+
+    // 2. Outstanding dues (sum)
+    const { data: dueRows } = await supabase
+      .from("due")
+      .select("amount")
+      .eq("user_id", userId);
+
+    const outstandingDues = (dueRows ?? []).reduce(
+      (sum, d) => sum + Number(d.amount),
+      0
+    );
+
+    // 3. Total funds donated
+    const { data: donationRows } = await supabase
+      .from("donation")
+      .select("amount")
+      .eq("userId", userId);
+
+    const totalDonated = (donationRows ?? []).reduce(
+      (sum, d) => sum + Number(d.amount),
+      0
+    );
+
+    return NextResponse.json({
+      role: "member",
+      stats: {
+        attendanceCount,
+        meetingsAttended,
+        outstandingDues,
+        totalDonated,
+      },
+      activities: [], // no activity feed for members
+    });
+  }
+
+  /* ================================================================
+   * ADMIN DASHBOARD — org-wide stats + activity (unchanged)
+   * ================================================================ */
   const { count: totalMembers } = await supabase
     .from("User")
     .select("id", { count: "exact", head: true })
     .eq("role", "member");
 
-  /* ---------- 2. Total funds ---------- */
-  const { data: donationRows } = await supabase
+  const { data: allDonations } = await supabase
     .from("donation")
     .select("amount");
-  const totalFunds = (donationRows ?? []).reduce(
+  const totalFunds = (allDonations ?? []).reduce(
     (sum, d) => sum + Number(d.amount),
     0
   );
 
-  /* ---------- 3. Meetings held ---------- */
   const { count: meetingsHeld } = await supabase
     .from("Meeting")
     .select("id", { count: "exact", head: true })
     .lte("date", new Date().toISOString());
 
-  /* ---------- 4. Outstanding dues ---------- */
   const { count: duesCount } = await supabase
     .from("due")
     .select("id", { count: "exact", head: true });
 
-  /* ---------- 5. Recent activity from existing tables ---------- */
+  /* ---------- Recent activity (top 5) ---------- */
 
-  // 5a. Recent meetings
   const { data: recentMeetings } = await supabase
     .from("Meeting")
     .select("id, title, meeting_number, created_at")
     .order("created_at", { ascending: false })
     .limit(5);
 
-  // 5b. Recent donations (with user name for context)
   const { data: recentDonations } = await supabase
     .from("donation")
     .select("id, amount, category, created_at, userId")
@@ -68,15 +114,12 @@ export async function GET() {
     (donors ?? []).map((u) => [String(u.id), u.name])
   );
 
-  // 5c. Recent member registrations (both verified and pending)
   const { data: recentMembers } = await supabase
     .from("User")
     .select("id, name, verification_status, created_at")
     .eq("role", "member")
     .order("created_at", { ascending: false })
     .limit(10);
-
-  /* ---------- 6. Merge into one activity stream ---------- */
 
   type Activity = {
     action: string;
@@ -87,7 +130,6 @@ export async function GET() {
 
   const activities: Activity[] = [];
 
-  // Meetings
   for (const m of recentMeetings ?? []) {
     activities.push({
       action: `Meeting created — #${m.meeting_number} ${m.title}`,
@@ -97,7 +139,6 @@ export async function GET() {
     });
   }
 
-  // Donations
   for (const d of recentDonations ?? []) {
     const name = d.userId
       ? donorMap.get(String(d.userId)) ?? "Unknown"
@@ -112,7 +153,6 @@ export async function GET() {
     });
   }
 
-  // Members — split into "verified", "declined", "registered"
   for (const m of recentMembers ?? []) {
     let kind: Activity["kind"] = "member";
     let action = `User registered — ${m.name}`;
@@ -133,13 +173,9 @@ export async function GET() {
     });
   }
 
-  // Sort desc by timestamp
   activities.sort((a, b) => b.ts - a.ts);
-
-  // Take top 5
   const top5 = activities.slice(0, 5);
 
-  /* ---------- 7. Relative time formatter ---------- */
   const now = Date.now();
   const formatRelative = (ts: number) => {
     const diffSec = Math.floor((now - ts) / 1000);
@@ -160,8 +196,8 @@ export async function GET() {
     kind: a.kind,
   }));
 
-  /* ---------- 8. Return ---------- */
   return NextResponse.json({
+    role: "admin",
     stats: {
       totalMembers: totalMembers ?? 0,
       totalFunds,

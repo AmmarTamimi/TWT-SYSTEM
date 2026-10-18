@@ -14,11 +14,18 @@ import { useUser } from "./UserContext";
 
 /* ---------------- Types ---------------- */
 
-type Stats = {
+type AdminStats = {
   totalMembers: number;
   totalFunds: number;
   meetingsHeld: number;
   duesCount: number;
+};
+
+type MemberStats = {
+  attendanceCount: number;
+  meetingsAttended: number;
+  outstandingDues: number;
+  totalDonated: number;
 };
 
 type ActivityKind =
@@ -35,6 +42,10 @@ type Activity = {
   kind: ActivityKind;
 };
 
+type DashboardData =
+  | { role: "admin"; stats: AdminStats; activities: Activity[] }
+  | { role: "member"; stats: MemberStats; activities: Activity[] };
+
 /* ---------------- Helpers ---------------- */
 
 function formatMoney(n: number) {
@@ -45,7 +56,6 @@ function formatMoney(n: number) {
   }).format(n);
 }
 
-/* Icon + color per activity kind */
 const kindStyles: Record<
   ActivityKind,
   { bg: string; icon: React.ReactNode }
@@ -77,8 +87,7 @@ const kindStyles: Record<
 export default function DashboardOverview() {
   const user = useUser();
 
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,12 +97,9 @@ export default function DashboardOverview() {
     (async () => {
       try {
         const res = await fetch("/api/dashboard");
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load dashboard");
-        if (!cancelled) {
-          setStats(data.stats);
-          setActivities(data.activities ?? []);
-        }
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Failed to load dashboard");
+        if (!cancelled) setData(json);
       } catch (err) {
         if (!cancelled) setError((err as Error).message);
       } finally {
@@ -106,37 +112,100 @@ export default function DashboardOverview() {
     };
   }, []);
 
-  /* ---------- Build stat cards from real data ---------- */
-  const statCards = [
-    {
-      title: "Total Members",
-      value: loading ? "—" : String(stats?.totalMembers ?? 0),
-      icon: <Users className="w-6 h-6 text-[#2c6e49]" />,
-      bg: "bg-green-50",
-      subtitle: "Registered members",
-    },
-    {
-      title: "Total Funds",
-      value: loading ? "—" : formatMoney(stats?.totalFunds ?? 0),
-      icon: <Wallet className="w-6 h-6 text-[#2c6e49]" />,
-      bg: "bg-blue-50",
-      subtitle: "All donations received",
-    },
-    {
-      title: "Meetings Held",
-      value: loading ? "—" : String(stats?.meetingsHeld ?? 0),
-      icon: <CalendarCheck className="w-6 h-6 text-[#2c6e49]" />,
-      bg: "bg-purple-50",
-      subtitle: "Past meetings",
-    },
-    {
-      title: "Outstanding Dues",
-      value: loading ? "—" : String(stats?.duesCount ?? 0),
-      icon: <HandCoins className="w-6 h-6 text-[#2c6e49]" />,
-      bg: "bg-amber-50",
-      subtitle: "Due records",
-    },
-  ];
+  /* ---------- Loading / error ---------- */
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-[#2c6e49]/10 to-green-50/50 rounded-2xl p-6 border border-[#2c6e49]/10">
+          <h2 className="text-2xl font-bold text-[#2c6e49]">
+            Welcome back, {user.name}
+          </h2>
+          <p className="text-gray-600 mt-1">
+            Here's what's happening with your welfare management today.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="border-0 shadow-sm animate-pulse">
+              <CardContent className="p-6 h-32 bg-gray-50 rounded-xl" />
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        Failed to load dashboard: {error || "Unknown error"}
+      </div>
+    );
+  }
+
+  /* ---------- Build stat cards based on role ---------- */
+  const statCards =
+    data.role === "admin"
+      ? [
+          {
+            title: "Total Members",
+            value: String(data.stats.totalMembers),
+            icon: <Users className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-green-50",
+            subtitle: "Registered members",
+          },
+          {
+            title: "Total Funds",
+            value: formatMoney(data.stats.totalFunds),
+            icon: <Wallet className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-blue-50",
+            subtitle: "All donations received",
+          },
+          {
+            title: "Meetings Held",
+            value: String(data.stats.meetingsHeld),
+            icon: <CalendarCheck className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-purple-50",
+            subtitle: "Past meetings",
+          },
+          {
+            title: "Outstanding Dues",
+            value: String(data.stats.duesCount),
+            icon: <HandCoins className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-amber-50",
+            subtitle: "Due records",
+          },
+        ]
+      : [
+          {
+            title: "Meetings Held",
+            value: String(data.stats.attendanceCount),
+            icon: <CalendarCheck className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-purple-50",
+            subtitle: "Attendance records",
+          },
+          {
+            title: "Meetings Attended",
+            value: String(data.stats.meetingsAttended),
+            icon: <Users className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-green-50",
+            subtitle: "Present in meetings",
+          },
+          {
+            title: "Outstanding Dues",
+            value: formatMoney(data.stats.outstandingDues),
+            icon: <HandCoins className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-amber-50",
+            subtitle: "Amount pending",
+          },
+          {
+            title: "Total Donated",
+            value: formatMoney(data.stats.totalDonated),
+            icon: <Wallet className="w-6 h-6 text-[#2c6e49]" />,
+            bg: "bg-blue-50",
+            subtitle: "Lifetime contributions",
+          },
+        ];
 
   return (
     <div className="space-y-6">
@@ -147,17 +216,12 @@ export default function DashboardOverview() {
             Welcome back, {user.name}
           </h2>
           <p className="text-gray-600 mt-1">
-            Here's what's happening with your welfare management today.
+            {data.role === "admin"
+              ? "Here's what's happening with your welfare management today."
+              : "Here's a summary of your welfare activity."}
           </p>
         </div>
       </div>
-
-      {/* Error */}
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-          Failed to load dashboard data: {error}
-        </div>
-      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -186,79 +250,64 @@ export default function DashboardOverview() {
         ))}
       </div>
 
-      {/* Recent Activity */}
-      <div className="px-1 md:px-5">
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-700">
-                Recent Activity
-              </h3>
-            </div>
+      {/* Recent Activity — admin only */}
+      {data.role === "admin" && (
+        <div className="px-1 md:px-5">
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Recent Activity
+                </h3>
+              </div>
 
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 animate-pulse"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gray-100" />
-                      <div className="space-y-1.5">
-                        <div className="h-3.5 bg-gray-100 rounded w-40" />
-                        <div className="h-2.5 bg-gray-100 rounded w-24" />
-                      </div>
-                    </div>
-                    <div className="h-2.5 bg-gray-100 rounded w-12" />
-                  </div>
-                ))}
-              </div>
-            ) : activities.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-sm text-gray-500">
-                  No recent activity yet.
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Activity will appear here as members register, meetings are
-                  created, and donations are recorded.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {activities.map((activity, index) => {
-                  const style = kindStyles[activity.kind] ?? kindStyles.member;
-                  return (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${style.bg}`}
-                        >
-                          {style.icon}
+              {data.activities.length === 0 ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-gray-500">
+                    No recent activity yet.
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Activity will appear here as members register, meetings are
+                    created, and donations are recorded.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {data.activities.map((activity, index) => {
+                    const style =
+                      kindStyles[activity.kind] ?? kindStyles.member;
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${style.bg}`}
+                          >
+                            {style.icon}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm text-gray-700 truncate">
+                              {activity.action}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              by {activity.user}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm text-gray-700 truncate">
-                            {activity.action}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            by {activity.user}
-                          </p>
-                        </div>
+                        <span className="text-xs text-gray-400 shrink-0 ml-3">
+                          {activity.time}
+                        </span>
                       </div>
-                      <span className="text-xs text-gray-400 shrink-0 ml-3">
-                        {activity.time}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
