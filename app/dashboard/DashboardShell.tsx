@@ -18,6 +18,8 @@ import {
   ChevronDown,
   Clock,
   UserCheck,
+  DollarSign,
+  TrendingDown
 } from "lucide-react";
 import { UserProvider } from "./UserContext";
 import ProfileCard from "./ProfileCard/page";
@@ -63,9 +65,15 @@ const navItems: NavItem[] = [
     adminOnly: true,
   },
   {
-    name: "Funding",
-    href: "/dashboard/funding",
+    name: "Donations",
+    href: "/dashboard/donations",
     icon: <Wallet className="w-5 h-5" />,
+  },
+  {
+    name: "Expenses",
+    href: "/dashboard/expenses",
+    icon: <TrendingDown className="w-5 h-5" />,
+    adminOnly: true,
   },
   {
     name: "Attendance",
@@ -301,7 +309,7 @@ export default function DashboardShell({
                 <Menu className="w-5 h-5 text-gray-600" />
               </button>
               <h1 className="text-lg font-semibold text-gray-800">
-                {pageTitle(pathname)}
+                {pageTitle(pathname, user.role)}
               </h1>
             </div>
             <div className="flex items-center gap-3">
@@ -339,20 +347,25 @@ export default function DashboardShell({
       </div>
     </div>
   );
+  
 }
 
-function pageTitle(pathname: string) {
+function pageTitle(pathname: string, role: string) {
+  const isMember = role === "member";
+
   const map: Record<string, string> = {
     "/dashboard": "Overview",
     "/dashboard/members": "Members",
     "/dashboard/add-member": "Add Member",
     "/dashboard/verifications": "Member Verification",
-    "/dashboard/funding": "My Funding",
-    "/dashboard/attendance": "My Attendance",
+    "/dashboard/donations": isMember ? "My Donations" : "Donations",
+    "/dashboard/attendance": isMember ? "My Attendance" : "Attendance",
     "/dashboard/meetings": "Meetings",
-    "/dashboard/loans": "Loan Requests",
+    "/dashboard/expenses": "Expenses",
+    "/dashboard/loans": isMember ? "My Loan Requests" : "Loan Requests",
     "/dashboard/loan-details": "Loan Details",
     "/dashboard/settings": "Settings",
   };
+
   return map[pathname] ?? "";
 }
