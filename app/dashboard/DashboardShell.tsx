@@ -75,12 +75,6 @@ const navItems: NavItem[] = [
     adminOnly: true,
   },
   {
-    name: "Expenses",
-    href: "/dashboard/expenses",
-    icon: <TrendingDown className="w-5 h-5" />,
-    adminOnly: true,
-  },
-  {
     name: "My Attendance",
     href: "/dashboard/attendance",
     icon: <Clock className="w-5 h-5" />,

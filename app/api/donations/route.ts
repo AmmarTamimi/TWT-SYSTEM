@@ -12,9 +12,15 @@ export async function GET() {
   const supabase = createAdminClient();
 
   // 1. Fetch donations and expenses
-  const { data: donations, error: donationError } = await supabase
+    const { data: donations, error: donationError } = await supabase
     .from("donation")
-    .select("*")
+    .select(`
+      *,
+      User (
+        name,
+        cnic
+      )
+    `)
     .order("date", { ascending: false });
 
   const { data: expenses, error: expenseError } = await supabase
