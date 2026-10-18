@@ -12,7 +12,6 @@ import {
   Settings,
   UserPlus,
   CreditCard,
-  Bell,
   LogOut,
   Menu,
   ChevronDown,
@@ -63,12 +62,12 @@ const navItems: NavItem[] = [
     adminOnly: true,
   },
   {
-    name: "Funding",
+    name: "My Funding",
     href: "/dashboard/funding",
     icon: <Wallet className="w-5 h-5" />,
   },
   {
-    name: "Attendance",
+    name: "My Attendance",
     href: "/dashboard/attendance",
     icon: <Clock className="w-5 h-5" />,
   },
@@ -112,7 +111,7 @@ export default function DashboardShell({
   const sidebarProfileRef = useRef<HTMLDivElement | null>(null);
   const headerProfileRef = useRef<HTMLDivElement | null>(null);
 
-  /* ---------- Close sidebar popup on outside click / Escape ---------- */
+  /* ---------- Close popups on outside click / Escape ---------- */
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -186,7 +185,7 @@ export default function DashboardShell({
         />
       )}
 
-      {/* Sidebar */}
+      {/* ---------- Sidebar ---------- */}
       <aside
         className={`fixed top-0 left-0 z-50 h-full flex flex-col bg-white/95 backdrop-blur-xl border-r border-green-100/50 shadow-xl transition-all duration-300 ${
           isSidebarOpen ? "w-64" : "w-20"
@@ -285,7 +284,7 @@ export default function DashboardShell({
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* ---------- Main content ---------- */}
       <div
         className={`transition-all duration-300 ${
           isSidebarOpen ? "md:ml-64" : "md:ml-20"
@@ -293,6 +292,7 @@ export default function DashboardShell({
       >
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-green-100/50 px-4 md:px-6">
           <div className="flex items-center justify-between h-16">
+            {/* Left: mobile menu + page title */}
             <div className="flex items-center gap-3">
               <button
                 onClick={toggleMobileSidebar}
@@ -304,13 +304,9 @@ export default function DashboardShell({
                 {pageTitle(pathname)}
               </h1>
             </div>
-            <div className="flex items-center gap-3">
-              <button className="relative p-2 rounded-lg hover:bg-green-50 transition-colors">
-                <Bell className="w-5 h-5 text-gray-600" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
 
-              {/* Header avatar + dropdown */}
+            {/* Right: only avatar (bell removed) */}
+            <div className="flex items-center gap-3">
               <div className="relative" ref={headerProfileRef}>
                 <button
                   onClick={() => setIsHeaderProfileOpen((o) => !o)}

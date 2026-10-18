@@ -63,6 +63,25 @@ function formatDateTime(iso: string) {
   });
 }
 
+/* ---------- Timezone-safe conversion helpers ---------- */
+
+/** Convert a UTC ISO string from DB → local "YYYY-MM-DDTHH:mm" for datetime-local input */
+function toLocalInputValue(utcIso: string | null | undefined): string {
+  if (!utcIso) return "";
+  const d = new Date(utcIso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+    d.getDate()
+  )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Convert local datetime-local value → UTC ISO string for DB */
+function toUtcIso(localValue: string): string {
+  return new Date(localValue).toISOString();
+}
+
+/* ---------- CSV ---------- */
+
 function escapeCsv(v: unknown) {
   if (v === null || v === undefined) return "";
   const s = String(v);
@@ -227,7 +246,6 @@ export default function MeetingsPage() {
           </p>
         </div>
 
-        {/* Admin-only actions */}
         {isAdmin && (
           <div className="flex items-center gap-2">
             <Button
@@ -403,7 +421,6 @@ export default function MeetingsPage() {
                         </div>
                       </div>
 
-                      {/* Actions — Edit only for admin */}
                       <div
                         className="flex items-center gap-1 sm:flex-col sm:items-end flex-shrink-0 self-end sm:self-start"
                         onClick={(e) => e.stopPropagation()}
@@ -552,7 +569,7 @@ function CreateMeetingModal({
           title: form.title.trim(),
           location: form.location.trim(),
           agenda: form.agenda.trim() || null,
-          date: new Date(form.date).toISOString(),
+          date: toUtcIso(form.date), // ✅ timezone-safe
           meeting_number: num,
           arranged_by: form.arranged_by,
         }),
